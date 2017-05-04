@@ -8,7 +8,8 @@ sudo apt-get install libboost-all-dev
 sudo apt-get install libsqlite3-dev
 
 #extlibs
-cd ..
+script_dir=$(cd "$(dirname "$0")" && pwd)
+cd $script_dir/..
 git clone https://github.com/01org/tinycbor.git extlibs/tinycbor/tinycbor -b v0.4.1
 git clone https://github.com/ARMmbed/mbedtls.git extlibs/mbedtls/mbedtls -b mbedtls-2.4.0
 
