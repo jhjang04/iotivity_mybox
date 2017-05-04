@@ -17,6 +17,8 @@
 # limitations under the License.
 #
 #-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=
+# Ignore Build
+build/*
 
 # Ignore output dirs
 /release
