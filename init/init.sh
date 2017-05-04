@@ -6,6 +6,9 @@ sudo apt-get install libboost-dev libboost-program-options-dev libboost-thread-d
 sudo apt-get install doxygen
 sudo apt-get install libboost-all-dev
 sudo apt-get install libsqlite3-dev
+sudo apt-get install openjdk-8-jdk
+
+
 
 #extlibs
 script_dir=$(cd "$(dirname "$0")" && pwd)
