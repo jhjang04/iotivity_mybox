@@ -53,6 +53,7 @@ if target_os in ['windows', 'linux']:
 if target_os not in ['arduino','darwin','ios','android']:
     # Build examples
     SConscript('examples/SConscript')
+    SConscript('mybox/SConscript')
 
 if target_os in ['linux', 'windows', 'darwin', 'msys_nt']:
     if target_os == 'darwin':

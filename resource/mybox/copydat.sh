@@ -1,0 +1,4 @@
+cp ../../../../../../resource/mybox/*.dat ./
+
+
+
