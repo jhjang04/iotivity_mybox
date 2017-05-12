@@ -72,4 +72,3 @@ cd $script_dir/../
 echo "root directory : "$(pwd)
 
 $SCONS$FLAG
-

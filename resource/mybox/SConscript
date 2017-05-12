@@ -79,8 +79,8 @@ if mybox_env.get('SECURED') == '1':
 # Source files
 ######################################################################
 
-mybox += [mybox_env.Program("myboxserver", ["myboxserver.cpp","LightResource.cpp"])]
-mybox += [mybox_env.Program("myboxclient", ["myboxclient.cpp"])]
+mybox += [mybox_env.Program("myboxserver", ["MyboxServer.cpp","MyboxResource.cpp","Mybox.cpp"])]
+mybox += [mybox_env.Program("myboxclient", ["MyboxClient.cpp","Mybox.cpp"])]
 
 ######################################################################
 # Others

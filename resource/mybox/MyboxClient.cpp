@@ -37,6 +37,7 @@
 #include <condition_variable>
 #include "OCPlatform.h"
 #include "OCApi.h"
+#include "Mybox.h"
 
 using namespace OC;
 
@@ -45,24 +46,27 @@ typedef std::map<OCResourceIdentifier, std::shared_ptr<OCResource>> DiscoveredRe
 
 DiscoveredResourceMap discoveredResources;
 std::shared_ptr<OCResource> curResource;
+
+/*
+OBSERVE_TYPE
+ObserveType::Observe
+ObserveType::ObserveAll
+ */
 static ObserveType OBSERVE_TYPE_TO_USE = ObserveType::Observe;
-static OCConnectivityType TRANSPORT_TYPE_TO_USE =
-		OCConnectivityType::CT_ADAPTER_IP;
+
+/*
+TRANSPORT_TYPE
+OCConnectivityType::CT_ADAPTER_IP;
+OCConnectivityType::CT_ADAPTER_TCP;
+ */
+static OCConnectivityType TRANSPORT_TYPE_TO_USE = OCConnectivityType::CT_ADAPTER_IP;
+
+
+
+
 std::mutex curResourceLock;
 
-class Light {
-public:
-
-	bool m_state;
-	int m_power;
-	std::string m_name;
-
-	Light() :
-			m_state(false), m_power(0), m_name("") {
-	}
-};
-
-Light mylight;
+static Mybox mybox;
 
 int observe_count() {
 	static int oc = 0;
@@ -70,8 +74,11 @@ int observe_count() {
 }
 
 void onObserve(const HeaderOptions /*headerOptions*/,
-		const OCRepresentation& rep, const int& eCode,
+		const OCRepresentation& rep,
+		const int& eCode,
 		const int& sequenceNumber) {
+	std::cout << "Enter onObserve.." << std::endl;
+	return;
 	try {
 		if (eCode == OC_STACK_OK && sequenceNumber <= MAX_SEQUENCE_NUMBER) {
 			if (sequenceNumber == OC_OBSERVE_REGISTER) {
@@ -81,13 +88,11 @@ void onObserve(const HeaderOptions /*headerOptions*/,
 
 			std::cout << "OBSERVE RESULT:" << std::endl;
 			std::cout << "\tSequenceNumber: " << sequenceNumber << std::endl;
-			rep.getValue("state", mylight.m_state);
-			rep.getValue("power", mylight.m_power);
-			rep.getValue("name", mylight.m_name);
 
-			std::cout << "\tstate: " << mylight.m_state << std::endl;
-			std::cout << "\tpower: " << mylight.m_power << std::endl;
-			std::cout << "\tname: " << mylight.m_name << std::endl;
+
+			rep.getValue("state", mybox.state);
+
+			std::cout << "\tstate: " << Mybox::getStateStr(mybox.state) << std::endl;
 
 			if (observe_count() == 11) {
 				std::cout << "Cancelling Observe..." << std::endl;
@@ -96,16 +101,13 @@ void onObserve(const HeaderOptions /*headerOptions*/,
 				std::cout << "Cancel result: " << result << std::endl;
 				sleep(10);
 				std::cout << "DONE" << std::endl;
+
 				std::exit(0);
 			}
 		} else {
 			if (eCode == OC_STACK_OK) {
-				std::cout
-						<< "No observe option header is returned in the response."
-						<< std::endl;
-				std::cout
-						<< "For a registration request, it means the registration failed"
-						<< std::endl;
+				std::cout << "No observe option header is returned in the response." << std::endl;
+				std::cout << "For a registration request, it means the registration failed" << std::endl;
 			} else {
 				std::cout << "onObserve Response error: " << eCode << std::endl;
 				std::exit(-1);
@@ -117,76 +119,18 @@ void onObserve(const HeaderOptions /*headerOptions*/,
 
 }
 
-void onPost2(const HeaderOptions& /*headerOptions*/,
-		const OCRepresentation& rep, const int eCode) {
+void onPost(const HeaderOptions& /*headerOptions*/, const OCRepresentation& rep, const int eCode) {
+	std::cout << "Enter onPost.." << std::endl;
 	try {
-		if (eCode == OC_STACK_OK || eCode == OC_STACK_RESOURCE_CREATED
-				|| eCode == OC_STACK_RESOURCE_CHANGED) {
+		if (eCode == OC_STACK_OK || eCode == OC_STACK_RESOURCE_CREATED || eCode == OC_STACK_RESOURCE_CHANGED) {
 			std::cout << "POST request was successful" << std::endl;
 
-			if (rep.hasAttribute("createduri")) {
-				std::cout << "\tUri of the created resource: "
-						<< rep.getValue<std::string>("createduri") << std::endl;
-			} else {
-				rep.getValue("state", mylight.m_state);
-				rep.getValue("power", mylight.m_power);
-				rep.getValue("name", mylight.m_name);
+			rep.getValue("state", mybox.state);
+			rep.getValue("name", mybox.name);
 
-				std::cout << "\tstate: " << mylight.m_state << std::endl;
-				std::cout << "\tpower: " << mylight.m_power << std::endl;
-				std::cout << "\tname: " << mylight.m_name << std::endl;
-			}
-
-			if (OBSERVE_TYPE_TO_USE == ObserveType::Observe)
-				std::cout << std::endl << "Observe is used." << std::endl
-						<< std::endl;
-			else if (OBSERVE_TYPE_TO_USE == ObserveType::ObserveAll)
-				std::cout << std::endl << "ObserveAll is used." << std::endl
-						<< std::endl;
-
-			curResource->observe(OBSERVE_TYPE_TO_USE, QueryParamsMap(),
-					&onObserve);
-
-		} else {
-			std::cout << "onPost2 Response error: " << eCode << std::endl;
-			std::exit(-1);
-		}
-	} catch (std::exception& e) {
-		std::cout << "Exception: " << e.what() << " in onPost2" << std::endl;
-	}
-}
-
-void onPost(const HeaderOptions& /*headerOptions*/, const OCRepresentation& rep,
-		const int eCode) {
-	try {
-		if (eCode == OC_STACK_OK || eCode == OC_STACK_RESOURCE_CREATED
-				|| eCode == OC_STACK_RESOURCE_CHANGED) {
-			std::cout << "POST request was successful" << std::endl;
-
-			if (rep.hasAttribute("createduri")) {
-				std::cout << "\tUri of the created resource: "
-						<< rep.getValue<std::string>("createduri") << std::endl;
-			} else {
-				rep.getValue("state", mylight.m_state);
-				rep.getValue("power", mylight.m_power);
-				rep.getValue("name", mylight.m_name);
-
-				std::cout << "\tstate: " << mylight.m_state << std::endl;
-				std::cout << "\tpower: " << mylight.m_power << std::endl;
-				std::cout << "\tname: " << mylight.m_name << std::endl;
-			}
-
-			OCRepresentation rep2;
-
-			std::cout << "Posting light representation..." << std::endl;
-
-			mylight.m_state = true;
-			mylight.m_power = 55;
-
-			rep2.setValue("state", mylight.m_state);
-			rep2.setValue("power", mylight.m_power);
-
-			curResource->post(rep2, QueryParamsMap(), &onPost2);
+			std::cout << "\tstate: " << Mybox::getStateStr(mybox.state) << std::endl;
+			std::cout << "\tname: " << mybox.name << std::endl;
+			OC_VERIFY(OCPlatform::stop() == OC_STACK_OK);
 		} else {
 			std::cout << "onPost Response error: " << eCode << std::endl;
 			std::exit(-1);
@@ -200,14 +144,10 @@ void onPost(const HeaderOptions& /*headerOptions*/, const OCRepresentation& rep,
 void postLightRepresentation(std::shared_ptr<OCResource> resource) {
 	if (resource) {
 		OCRepresentation rep;
+		std::cout << "Posting Mybox representation..." << std::endl;
 
-		std::cout << "Posting light representation..." << std::endl;
-
-		mylight.m_state = false;
-		mylight.m_power = 105;
-
-		rep.setValue("state", mylight.m_state);
-		rep.setValue("power", mylight.m_power);
+		mybox.state = Mybox::OPEN;
+		rep.setValue("state", mybox.state);
 
 		// Invoke resource's post API with rep, query map and the callback parameter
 		resource->post(rep, QueryParamsMap(), &onPost);
@@ -215,21 +155,19 @@ void postLightRepresentation(std::shared_ptr<OCResource> resource) {
 }
 
 // callback handler on PUT request
-void onPut(const HeaderOptions& /*headerOptions*/, const OCRepresentation& rep,
-		const int eCode) {
+void onPut(const HeaderOptions& /*headerOptions*/, const OCRepresentation& rep, const int eCode) {
+	std::cout << "Enter onPut.." << std::endl;
 	try {
 		if (eCode == OC_STACK_OK || eCode == OC_STACK_RESOURCE_CHANGED) {
 			std::cout << "PUT request was successful" << std::endl;
 
-			rep.getValue("state", mylight.m_state);
-			rep.getValue("power", mylight.m_power);
-			rep.getValue("name", mylight.m_name);
+			rep.getValue("state", mybox.state);
+			rep.getValue("name", mybox.name);
 
-			std::cout << "\tstate: " << mylight.m_state << std::endl;
-			std::cout << "\tpower: " << mylight.m_power << std::endl;
-			std::cout << "\tname: " << mylight.m_name << std::endl;
+			std::cout << "\tstate: " << Mybox::getStateStr(mybox.state) << std::endl;
+			std::cout << "\tname: " << mybox.name << std::endl;
 
-			postLightRepresentation(curResource);
+			//postLightRepresentation(curResource);
 		} else {
 			std::cout << "onPut Response error: " << eCode << std::endl;
 			std::exit(-1);
@@ -243,36 +181,28 @@ void onPut(const HeaderOptions& /*headerOptions*/, const OCRepresentation& rep,
 void putLightRepresentation(std::shared_ptr<OCResource> resource) {
 	if (resource) {
 		OCRepresentation rep;
-
 		std::cout << "Putting light representation..." << std::endl;
-
-		mylight.m_state = true;
-		mylight.m_power = 15;
-
-		rep.setValue("state", mylight.m_state);
-		rep.setValue("power", mylight.m_power);
-
+		mybox.state=Mybox::OPEN;
+		rep.setValue("state", mybox.state);
 		// Invoke resource's put API with rep, query map and the callback parameter
 		resource->put(rep, QueryParamsMap(), &onPut);
 	}
 }
 
 // Callback handler on GET request
-void onGet(const HeaderOptions& /*headerOptions*/, const OCRepresentation& rep,
-		const int eCode) {
+void onGet(const HeaderOptions& /*headerOptions*/, const OCRepresentation& rep, const int eCode) {
+	std::cout << "Enter onGet.." << std::endl;
 	try {
 		if (eCode == OC_STACK_OK) {
 			std::cout << "GET request was successful" << std::endl;
 			std::cout << "Resource URI: " << rep.getUri() << std::endl;
 
-			rep.getValue("state", mylight.m_state);
-			rep.getValue("power", mylight.m_power);
-			rep.getValue("name", mylight.m_name);
+			rep.getValue("state", mybox.state);
+			rep.getValue("name", mybox.name);
 
-			std::cout << "\tstate: " << mylight.m_state << std::endl;
-			std::cout << "\tpower: " << mylight.m_power << std::endl;
-			std::cout << "\tname: " << mylight.m_name << std::endl;
-			exit(0);
+			std::cout << "\tstate: " << Mybox::getStateStr(mybox.state) << std::endl;
+			std::cout << "\tname: " << mybox.name << std::endl;
+
 			//putLightRepresentation(curResource);
 		} else {
 			std::cout << "onGET Response error: " << eCode << std::endl;
@@ -288,7 +218,6 @@ void getLightRepresentation(std::shared_ptr<OCResource> resource) {
 	if (resource) {
 		std::cout << "Getting Light Representation..." << std::endl;
 		// Invoke resource's get API with the callback parameter
-
 		QueryParamsMap test;
 		resource->get(test, &onGet);
 	}
@@ -296,21 +225,19 @@ void getLightRepresentation(std::shared_ptr<OCResource> resource) {
 
 // Callback to found resources
 void foundResource(std::shared_ptr<OCResource> resource) {
-	std::cout << "In foundResource\n";
+	std::cout << "*************************************************************" << std::endl;
+	std::cout << "Enter foundResource" << std::endl;
+	std::cout << "*************************************************************" << std::endl;
 	std::string resourceURI;
 	std::string hostAddress;
 	try {
 		{
 			std::lock_guard < std::mutex > lock(curResourceLock);
-			if (discoveredResources.find(resource->uniqueIdentifier())
-					== discoveredResources.end()) {
-				std::cout << "Found resource " << resource->uniqueIdentifier()
-						<< " for the first time on server with ID: "
-						<< resource->sid() << std::endl;
+			if (discoveredResources.find(resource->uniqueIdentifier()) == discoveredResources.end()) {
+				std::cout << "Found resource " << resource->uniqueIdentifier() << " for the first time on server with ID: "<< resource->sid() << std::endl;
 				discoveredResources[resource->uniqueIdentifier()] = resource;
 			} else {
-				std::cout << "Found resource " << resource->uniqueIdentifier()
-						<< " again!" << std::endl;
+				std::cout << "Found resource " << resource->uniqueIdentifier() << " again!" << std::endl;
 			}
 
 			if (curResource) {
@@ -328,8 +255,7 @@ void foundResource(std::shared_ptr<OCResource> resource) {
 
 			// Get the resource host address
 			hostAddress = resource->host();
-			std::cout << "\tHost address of the resource: " << hostAddress
-					<< std::endl;
+			std::cout << "\tHost address of the resource: " << hostAddress << std::endl;
 
 			// Get the resource types
 			std::cout << "\tList of resource types: " << std::endl;
@@ -366,17 +292,13 @@ void foundResource(std::shared_ptr<OCResource> resource) {
 						std::string newHost = resourceEndpoints;
 
 						if (std::string::npos != newHost.find("tcp")) {
-							TRANSPORT_TYPE_TO_USE =
-									OCConnectivityType::CT_ADAPTER_TCP;
+							TRANSPORT_TYPE_TO_USE = OCConnectivityType::CT_ADAPTER_TCP;
 						} else {
-							TRANSPORT_TYPE_TO_USE =
-									OCConnectivityType::CT_ADAPTER_IP;
+							TRANSPORT_TYPE_TO_USE = OCConnectivityType::CT_ADAPTER_IP;
 						}
 						// Change Resource host if another host exists
-						std::cout << "\tChange host of resource endpoints"
-								<< std::endl;
-						std::cout << "\t\t" << "Current host is "
-								<< resource->setHost(newHost) << std::endl;
+						std::cout << "\tChange host of resource endpoints" << std::endl;
+						std::cout << "\t\t" << "Current host is " << resource->setHost(newHost) << std::endl;
 						break;
 					}
 				}
@@ -386,11 +308,17 @@ void foundResource(std::shared_ptr<OCResource> resource) {
 				if (resource->connectivityType() & TRANSPORT_TYPE_TO_USE) {
 					curResource = resource;
 					// Get the resource host address
-					std::cout << "\tAddress of selected resource: "
-							<< resource->host() << std::endl;
+					std::cout << "\tAddress of selected resource: " << resource->host() << std::endl;
 
 					// Call a local function which will internally invoke get API on the resource pointer
 					getLightRepresentation(resource);
+					std::cout << "get request end...." << std::endl;
+					// call put
+					putLightRepresentation(resource);
+					std::cout << "put request end...." << std::endl;
+					//call post
+					postLightRepresentation(resource);
+					std::cout << "post request end...." << std::endl;
 				}
 			}
 		} else {
@@ -403,46 +331,6 @@ void foundResource(std::shared_ptr<OCResource> resource) {
 	}
 }
 
-void printUsage() {
-	std::cout << std::endl;
-	std::cout
-			<< "---------------------------------------------------------------------\n";
-	std::cout << "Usage : simpleclient <ObserveType> <TransportType>"
-			<< std::endl;
-	std::cout << "   ObserveType : 1 - Observe" << std::endl;
-	std::cout << "   ObserveType : 2 - ObserveAll" << std::endl;
-	std::cout << "   TransportType : 1 - IP" << std::endl;
-	std::cout << "   TransportType : 2 - TCP" << std::endl;
-	std::cout
-			<< "---------------------------------------------------------------------\n\n";
-}
-
-void checkObserverValue(int value) {
-	if (value == 1) {
-		OBSERVE_TYPE_TO_USE = ObserveType::Observe;
-		std::cout << "<===Setting ObserveType to Observe===>\n\n";
-	} else if (value == 2) {
-		OBSERVE_TYPE_TO_USE = ObserveType::ObserveAll;
-		std::cout << "<===Setting ObserveType to ObserveAll===>\n\n";
-	} else {
-		std::cout << "<===Invalid ObserveType selected."
-				<< " Setting ObserveType to Observe===>\n\n";
-	}
-}
-
-void checkTransportValue(int value) {
-	if (1 == value) {
-		TRANSPORT_TYPE_TO_USE = OCConnectivityType::CT_ADAPTER_IP;
-		std::cout << "<===Setting TransportType to IP===>\n\n";
-	} else if (2 == value) {
-		TRANSPORT_TYPE_TO_USE = OCConnectivityType::CT_ADAPTER_TCP;
-		std::cout << "<===Setting TransportType to TCP===>\n\n";
-	} else {
-		std::cout << "<===Invalid TransportType selected."
-				<< " Setting TransportType to IP===>\n\n";
-	}
-}
-
 static FILE* client_open(const char* path, const char* mode) {
 	if (0 == strcmp(path, OC_SECURITY_DB_DAT_FILE_NAME)) {
 		return fopen(SVR_DB_FILE_NAME, mode);
@@ -451,63 +339,59 @@ static FILE* client_open(const char* path, const char* mode) {
 	}
 }
 
-static int chkArguments(int argc, char* argv[]) {
-	if (argc == 1) {
-		std::cout
-				<< "<===Setting ObserveType to Observe and ConnectivityType to IP===>\n\n";
-	} else if (argc == 2) {
-		checkObserverValue(std::stoi(argv[1]));
-	} else if (argc == 3) {
-		checkObserverValue(std::stoi(argv[1]));
-		checkTransportValue(std::stoi(argv[2]));
-	} else {
-		std::cout << "<===Invalid number of command line arguments===>\n\n";
-		return -1;
-	}
-	return 0;
-}
 
-int main(int argc, char* argv[]) {
 
+int main() {
 	std::ostringstream requestURI;
 	OCPersistentStorage ps {client_open, fread, fwrite, fclose, unlink };
-	try {
-		printUsage();
-		if (chkArguments(argc, argv) < 0)
-			return -1;
-	} catch (std::exception&) {
-		std::cout << "<===Invalid input arguments===>\n\n";
-		return -1;
-	}
-
 	// Create PlatformConfig object
 	PlatformConfig cfg { OC::ServiceType::InProc, OC::ModeType::Both, &ps };
-
-	cfg.transportType =
-			static_cast<OCTransportAdapter>(OCTransportAdapter::OC_ADAPTER_IP
-					| OCTransportAdapter::OC_ADAPTER_TCP);
+	cfg.transportType =static_cast<OCTransportAdapter>(OCTransportAdapter::OC_ADAPTER_IP | OCTransportAdapter::OC_ADAPTER_TCP);
 	cfg.QoS = OC::QualityOfService::HighQos;
-
 	OCPlatform::Configure(cfg);
 	try {
 		OC_VERIFY(OCPlatform::start() == OC_STACK_OK);
 
 		// makes it so that all boolean values are printed as 'true/false' in this stream
 		std::cout.setf(std::ios::boolalpha);
+
 		// Find all resources
 		requestURI << OC_RSRVD_WELL_KNOWN_URI; // << "?rt=core.light";
 
-		std::cout << "********************************************************" << std::endl;
-		std::cout << "*START FIND RESOURCE!!!!!!!                             *" << std::endl;
-		std::cout << "OCPlatform::findResource("", requestURI.str(), CT_DEFAULT,&foundResource);*" << std::endl;
-		std::cout << "*requestURI.str() = " << requestURI.str() << std::endl;
-		std::cout << "*CT_DEFAULT = " << CT_DEFAULT  << std::endl;
-		std::cout << "*                            *" << std::endl;
-		std::cout << "********************************************************" << std::endl;
+		int sel;
 
-		OCPlatform::findResource("", requestURI.str(), CT_DEFAULT,
-				&foundResource);
-		std::cout << "Finding Resource... " << std::endl;
+
+		while(1){
+			std::cout << "*******************************************************" << std::endl;
+			std::cout << "*1. Get                                               *" << std::endl;
+			std::cout << "*2. Put                                               *" << std::endl;
+			std::cout << "*3. Post                                              *" << std::endl;
+			std::cout << "*0. Exit                                              *" << std::endl;
+			std::cout << "*******************************************************" << std::endl;
+			std::cout << "Please input valid number : ";
+			std::cin >> sel;
+
+			if(sel == 0 ) break;
+
+
+
+
+
+			std::cout << "********************************************************" << std::endl;
+			std::cout << "*START FIND RESOURCE!!!!!!!                            *" << std::endl;
+			std::cout << "OCPlatform::findResource("", requestURI.str(), CT_DEFAULT,&foundResource);*" << std::endl;
+			std::cout << "*requestURI.str() = " << requestURI.str() << std::endl;
+			std::cout << "*CT_DEFAULT = " << CT_DEFAULT  << std::endl;
+			std::cout << "*                            *" << std::endl;
+			std::cout << "********************************************************" << std::endl;
+
+
+			OCPlatform::findResource("", requestURI.str(), CT_DEFAULT, &foundResource);
+			std::cout << "Finding Resource... " << std::endl;
+
+		}
+
+
 
 		// Find resource is done twice so that we discover the original resources a second time.
 		// These resources will have the same uniqueidentifier (yet be different objects), so that
@@ -520,10 +404,10 @@ int main(int argc, char* argv[]) {
 		// intensive block until 'notify' is called on it.  In this case, since we
 		// don't ever call cv.notify, this should be a non-processor intensive version
 		// of while(true);
-		std::mutex blocker;
-		std::condition_variable cv;
-		std::unique_lock < std::mutex > lock(blocker);
-		cv.wait(lock);
+		//		std::mutex blocker;
+		//		std::condition_variable cv;
+		//		std::unique_lock < std::mutex > lock(blocker);
+		//		cv.wait(lock);
 
 		// Perform platform clean up.
 		OC_VERIFY(OCPlatform::stop() == OC_STACK_OK);
