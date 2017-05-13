@@ -67,7 +67,6 @@ static OCConnectivityType TRANSPORT_TYPE_TO_USE = OCConnectivityType::CT_ADAPTER
 std::mutex curResourceLock;
 
 static Mybox mybox;
-static int sel = 1;
 
 static void endclient();
 int observe_count();
@@ -80,7 +79,7 @@ void onGet(const HeaderOptions& /*headerOptions*/, const OCRepresentation& rep, 
 void putRepresentation(std::shared_ptr<OCResource> resource);
 void onPut(const HeaderOptions& /*headerOptions*/, const OCRepresentation& rep, const int eCode);
 void postRepresentation(std::shared_ptr<OCResource> resource);
-static void selectMethod();
+static int selectMethod();
 static FILE* client_open(const char* path, const char* mode);
 
 
@@ -152,7 +151,7 @@ void onPost(const HeaderOptions& /*headerOptions*/, const OCRepresentation& rep,
 
 			std::cout << "\tstate: " << Mybox::getStateStr(mybox.state) << std::endl;
 			std::cout << "\tname: " << mybox.name << std::endl;
-			endclient();
+//			endclient();
 		} else {
 			std::cout << "onPost Response error: " << eCode << std::endl;
 			std::exit(-1);
@@ -192,7 +191,7 @@ void onPut(const HeaderOptions& /*headerOptions*/, const OCRepresentation& rep, 
 			std::cout << "\tname: " << mybox.name << std::endl;
 
 			//postRepresentation(curResource);
-			endclient();
+//			endclient();
 		} else {
 			std::cout << "onPut Response error: " << eCode << std::endl;
 			std::exit(-1);
@@ -229,7 +228,7 @@ void onGet(const HeaderOptions& /*headerOptions*/, const OCRepresentation& rep, 
 			std::cout << "\tname: " << mybox.name << std::endl;
 
 			//putRepresentation(curResource);
-			endclient();
+//			endclient();
 		} else {
 			std::cout << "onGET Response error: " << eCode << std::endl;
 			std::exit(-1);
@@ -335,29 +334,32 @@ void foundResource(std::shared_ptr<OCResource> resource) {
 					curResource = resource;
 					// Get the resource host address
 					std::cout << "\tAddress of selected resource: " << resource->host() << std::endl;
-
-					switch(sel){
-					case 1:
-						// Call a local function which will internally invoke get API on the resource pointer
-						getRepresentation(resource);
-						std::cout << "get request end...." << std::endl;
-						break;
-					case 2:
-						// call put
-						putRepresentation(resource);
-						std::cout << "put request end...." << std::endl;
-						break;
-					case 3:
-						//call post
-						postRepresentation(resource);
-						std::cout << "post request end...." << std::endl;
-						break;
-					}
-
 					//observe
 					//resource->observe(OBSERVE_TYPE_TO_USE, QueryParamsMap(), &onObserve);
+					while(1){
+						int sel = selectMethod();
+						switch(sel){
+						case 1:
+							// Call a local function which will internally invoke get API on the resource pointer
+							getRepresentation(resource);
+							std::cout << "get request end...." << std::endl;
+							break;
+						case 2:
+							// call put
+							putRepresentation(resource);
+							std::cout << "put request end...." << std::endl;
+							break;
+						case 3:
+							//call post
+							postRepresentation(resource);
+							std::cout << "post request end...." << std::endl;
+							break;
+						default:
+							endclient();
+						}
+					}
 				}
-			}
+			}//if (resourceURI == "/a/light") {
 		} else {
 			// Resource is invalid
 			std::cout << "Resource is invalid" << std::endl;
@@ -368,37 +370,17 @@ void foundResource(std::shared_ptr<OCResource> resource) {
 	}
 }
 
-static void selectMethod(){
-	std::ostringstream requestURI;
-	try{
-		// Find all resources
-		requestURI << OC_RSRVD_WELL_KNOWN_URI; // << "?rt=core.light";
-
-		std::cout << "*******************************************************" << std::endl;
-		std::cout << "*1. Get                                               *" << std::endl;
-		std::cout << "*2. Put                                               *" << std::endl;
-		std::cout << "*3. Post                                              *" << std::endl;
-		std::cout << "*0. Exit                                              *" << std::endl;
-		std::cout << "*******************************************************" << std::endl;
-		std::cout << "Please input valid number : ";
-		std::cin >> sel;
-
-		if(sel == 0 ) endclient();
-
-		std::cout << "********************************************************" << std::endl;
-		std::cout << "*START FIND RESOURCE!!!!!!!                            *" << std::endl;
-		std::cout << "OCPlatform::findResource("", requestURI.str(), CT_DEFAULT,&foundResource);*" << std::endl;
-		std::cout << "*requestURI.str() = " << requestURI.str() << std::endl;
-		std::cout << "*CT_DEFAULT = " << CT_DEFAULT  << std::endl;
-		std::cout << "*                            *" << std::endl;
-		std::cout << "********************************************************" << std::endl;
-
-
-//		OCPlatform::findResource("", requestURI.str(), CT_DEFAULT, &foundResource);
-//		std::cout << "Finding Resource... " << std::endl;
-	}catch (OCException& e) {
-		oclog() << "Exception in main: " << e.what();
-	}
+static int selectMethod(){
+	int sel;
+	std::cout << "*******************************************************" << std::endl;
+	std::cout << "*1. Get                                               *" << std::endl;
+	std::cout << "*2. Put                                               *" << std::endl;
+	std::cout << "*3. Post                                              *" << std::endl;
+	std::cout << "*other. Exit                                          *" << std::endl;
+	std::cout << "*******************************************************" << std::endl;
+	std::cout << "Please input valid number : ";
+	std::cin >> sel;
+	return sel;
 }
 
 
@@ -428,11 +410,19 @@ int main() {
 		// makes it so that all boolean values are printed as 'true/false' in this stream
 		std::cout.setf(std::ios::boolalpha);
 
-		while(1){
-			selectMethod();
-			OCPlatform::findResource("", requestURI.str(), CT_DEFAULT, &foundResource);
-			std::cout << "Finding Resource... " << std::endl;
-		}
+		OCPlatform::findResource("", requestURI.str(), CT_DEFAULT, &foundResource);
+		std::cout << "Finding Resource... " << std::endl;
+
+
+		// A condition variable will free the mutex it is given, then do a non-
+		// intensive block until 'notify' is called on it.  In this case, since we
+		// don't ever call cv.notify, this should be a non-processor intensive version
+		// of while(true);
+		std::mutex blocker;
+		std::condition_variable cv;
+		std::unique_lock<std::mutex> lock(blocker);
+		cv.wait(lock);
+
 
 	} catch (OCException& e) {
 		oclog() << "Exception in main: " << e.what();
