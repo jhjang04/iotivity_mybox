@@ -30,6 +30,7 @@ import android.text.method.ScrollingMovementMethod;
 import android.util.Log;
 import android.view.View;
 import android.widget.Button;
+import android.widget.EditText;
 import android.widget.ScrollView;
 import android.widget.TextView;
 
@@ -65,7 +66,7 @@ public class SimpleClient extends Activity implements
         OcResource.OnPutListener,
         OcResource.OnPostListener,
         OcResource.OnObserveListener {
-
+    public static Context mContext;
     private Map<OcResourceIdentifier, OcResource> mFoundResources = new HashMap<>();
     private OcResource mFoundLightResource = null;
     //local representation of a server's light resource
@@ -76,6 +77,7 @@ public class SimpleClient extends Activity implements
     //flags related TCP transport test
     private boolean isRequestFlag = false;
     private boolean isTCPContained = false;
+    private String IPAddr;
 
     /**
      * A local method to configure and initialize platform, and then search for the light resources.
@@ -99,7 +101,7 @@ public class SimpleClient extends Activity implements
         try {
             msg("Finding all resources of type \"core.light\".");
             String requestUri = OcPlatform.WELL_KNOWN_QUERY + "?rt=core.light";
-            OcPlatform.findResource("",
+            OcPlatform.findResource(IPAddr,
                     requestUri,
                     EnumSet.of(OcConnectivityType.CT_DEFAULT),
                     this
@@ -111,7 +113,7 @@ public class SimpleClient extends Activity implements
             so that we can verify/show the duplicate-checking code in foundResource(above);
              */
             msg("Finding all resources of type \"core.light\" for the second time");
-            OcPlatform.findResource("",
+            OcPlatform.findResource(IPAddr,
                     requestUri,
                     EnumSet.of(OcConnectivityType.CT_DEFAULT),
                     this
@@ -122,7 +124,7 @@ public class SimpleClient extends Activity implements
             msg("Failed to invoke find resource API");
         }
 
-        printLine();
+        //printLine();
     }
 
     /**
@@ -184,14 +186,19 @@ public class SimpleClient extends Activity implements
         if (resourceUri.equals("/a/light")) {
             //Assign resource reference to a global variable to keep it from being
             //destroyed by the GC when it is out of scope.
+
             if (OcConnectivityType.CT_ADAPTER_TCP == adapterFlag)
             {
+
                 if (ocResource.getConnectivityTypeSet().contains(OcConnectivityType.CT_ADAPTER_TCP))
                 {
                     msg("set mFoundLightResource which has TCP transport");
                     mFoundLightResource = ocResource;
                     // Call a local method which will internally invoke "get" API
-                    getLightResourceRepresentation();
+                    Intent intent = new Intent(getApplicationContext(), Open.class);
+                    startActivity(intent);
+                    //getLightResourceRepresentation();
+
                     return;
                 }
             }
@@ -200,7 +207,11 @@ public class SimpleClient extends Activity implements
                 msg("set mFoundLightResource which has UDP transport");
                 mFoundLightResource = ocResource;
                 // Call a local method which will internally invoke "get" API on the foundLightResource
-                getLightResourceRepresentation();
+                Intent intent = new Intent(getApplicationContext(), Open.class);
+                startActivity(intent);
+
+                //getLightResourceRepresentation();
+
             }
         }
     }
@@ -214,15 +225,17 @@ public class SimpleClient extends Activity implements
     /**
      * Local method to get representation of a found light resource
      */
-    private void getLightResourceRepresentation() {
+    public void getLightResourceRepresentation() {
         msg("Getting Light Representation...");
 
+        //Go to Open Activity and put code below on button pressed
         Map<String, String> queryParams = new HashMap<>();
         try {
             // Invoke resource's "get" API with a OcResource.OnGetListener event
             // listener implementation
             sleep(1);
             mFoundLightResource.get(queryParams, this);
+            ((Open)Open.mContext).toastMessage();
         } catch (OcException e) {
             Log.e(TAG, e.toString());
             msg("Error occurred while invoking \"get\" API");
@@ -235,9 +248,12 @@ public class SimpleClient extends Activity implements
      * @param list             list of the header options
      * @param ocRepresentation representation of a resource
      */
+
     @Override
     public synchronized void onGetCompleted(List<OcHeaderOption> list,
                                             OcRepresentation ocRepresentation) {
+
+
         msg("GET request was successful");
         msg("Resource URI: " + ocRepresentation.getUri());
 
@@ -253,16 +269,22 @@ public class SimpleClient extends Activity implements
         printLine();
 
         //Call a local method which will internally invoke put API on the foundLightResource
-        putLightRepresentation();
+        //putLightRepresentation();
+
     }
+
 
     /**
      * An event handler to be executed whenever a "get" request fails
      *
      * @param throwable exception
      */
+
+
     @Override
     public synchronized void onGetFailed(Throwable throwable) {
+
+
         if (throwable instanceof OcException) {
             OcException ocEx = (OcException) throwable;
             Log.e(TAG, ocEx.toString());
@@ -271,11 +293,13 @@ public class SimpleClient extends Activity implements
             msg("Error code: " + errCode);
         }
         msg("Failed to get representation of a found light resource");
+
     }
 
     /**
      * Local method to put a different state for this light resource
      */
+
     private void putLightRepresentation() {
         //set new values
         mLight.setState(true);
@@ -584,16 +608,20 @@ public class SimpleClient extends Activity implements
 
         mConsoleTextView = (TextView) findViewById(R.id.consoleTextView);
         mConsoleTextView.setMovementMethod(new ScrollingMovementMethod());
+        final EditText IP = (EditText)findViewById(R.id.IPAddr);
         mScrollView = (ScrollView) findViewById(R.id.scrollView);
         mScrollView.fullScroll(View.FOCUS_DOWN);
         final Button button = (Button) findViewById(R.id.button);
 
+
+        mContext = this;
         if (null == savedInstanceState) {
             button.setOnClickListener(new View.OnClickListener() {
                 @Override
                 public void onClick(View v) {
                     button.setText("Re-start");
                     button.setEnabled(false);
+                    IPAddr = IP.getText().toString();
                     new Thread(new Runnable() {
                         public void run() {
                             isTCPContained = false;
@@ -640,7 +668,7 @@ public class SimpleClient extends Activity implements
         }
     }
 
-    private void msg(final String text) {
+    public void msg(final String text) {
         runOnUiThread(new Runnable() {
             public void run() {
                 mConsoleTextView.append("\n");

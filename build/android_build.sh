@@ -13,7 +13,7 @@ TARGET_ARCH="armeabi"
 #BT
 #BLE
 #Note: You may also build permutations of the above options by passing a comma-separated list.
-TARGET_TRANSPORT=""
+TARGET_TRANSPORT="IP"
 
 
 #RELEASE	Supported release modes:
@@ -26,15 +26,15 @@ RELEASE="1"
 #0 (DTLS disabled) (default)
 #1 (DTLS enabled)
 
-SECURED=""
+SECURED="1"
 #ANDROID_HOME	This takes the path to the Android SDK (if installed). If not, the SCons script will try to install Android SDK.
-ANDROID_HOME=""
+ANDROID_HOME="/usr/local/android/sdk/"
 
 #ANDROID_NDK	This takes the path to the Android NDK (if installed). If not, the SCons script will try to install Android NDK.
-ANDROID_NDK=""
+ANDROID_NDK="/usr/local/android/ndk/android-ndk-r10d/"
 
 #ANDROID_GRADLE	This takes the path to the Gradle bin (if installed). If not, the SCons script will install Gradle.
-ANDROID_GRADLE=""
+ANDROID_GRADLE="/usr/local/android/gradle/gradle-2.2.1/bin/gradle"
 
 SCONS="scons"
 FLAG=" TARGET_OS=android"
