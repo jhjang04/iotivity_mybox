@@ -39,6 +39,13 @@ void MyboxResource::createResource() {
 	}
 	EntityHandler cb = std::bind(&MyboxResource::entityHandler, this, PH::_1);
 
+
+	cout << "register resource.." << endl;
+	cout << "\t resourceURI \t\t= " << resourceURI << endl;
+	cout << "\t resourceTypeName \t= " << resourceTypeName << endl;
+	cout << "\t resourceInterface \t= " << resourceInterface << endl;
+
+
 	// This will internally create and register the resource.
 	OCStackResult result = OCPlatform::registerResource(mResHandle,
 			resourceURI, resourceTypeName, resourceInterface, cb,

@@ -52,7 +52,7 @@ OBSERVE_TYPE
 ObserveType::Observe
 ObserveType::ObserveAll
  */
-static ObserveType OBSERVE_TYPE_TO_USE = ObserveType::Observe;
+static ObserveType OBSERVE_TYPE_TO_USE = ObserveType::ObserveAll;
 
 /*
 TRANSPORT_TYPE
@@ -64,7 +64,10 @@ static OCConnectivityType TRANSPORT_TYPE_TO_USE = OCConnectivityType::CT_ADAPTER
 
 
 
-std::mutex curResourceLock;
+static std::mutex curResourceLock;
+static std::mutex blocker;
+static std::condition_variable cv;
+static std::unique_lock<std::mutex> lock(blocker);
 
 static Mybox mybox;
 
@@ -85,7 +88,8 @@ static FILE* client_open(const char* path, const char* mode);
 
 static void endclient(){
 	OC_VERIFY(OCPlatform::stop() == OC_STACK_OK);
-	exit(0);
+	cv.notify_one();
+	//exit(0);
 }
 
 
@@ -99,7 +103,6 @@ void onObserve(const HeaderOptions /*headerOptions*/,
 		const int& eCode,
 		const int& sequenceNumber) {
 	std::cout << "Enter onObserve.." << std::endl;
-	return;
 	try {
 		if (eCode == OC_STACK_OK && sequenceNumber <= MAX_SEQUENCE_NUMBER) {
 			if (sequenceNumber == OC_OBSERVE_REGISTER) {
@@ -250,8 +253,9 @@ void getRepresentation(std::shared_ptr<OCResource> resource) {
 
 // Callback to found resources
 void foundResource(std::shared_ptr<OCResource> resource) {
+	static int call_cnt=0;
 	std::cout << "*************************************************************" << std::endl;
-	std::cout << "Enter foundResource" << std::endl;
+	std::cout << "Enter foundResource..." << ++call_cnt << " time.." << std::endl;
 	std::cout << "*************************************************************" << std::endl;
 	std::string resourceURI;
 	std::string hostAddress;
@@ -356,6 +360,7 @@ void foundResource(std::shared_ptr<OCResource> resource) {
 							break;
 						default:
 							endclient();
+							return;
 						}
 					}
 				}
@@ -418,11 +423,8 @@ int main() {
 		// intensive block until 'notify' is called on it.  In this case, since we
 		// don't ever call cv.notify, this should be a non-processor intensive version
 		// of while(true);
-		std::mutex blocker;
-		std::condition_variable cv;
-		std::unique_lock<std::mutex> lock(blocker);
-		cv.wait(lock);
 
+		cv.wait(lock);
 
 	} catch (OCException& e) {
 		oclog() << "Exception in main: " << e.what();

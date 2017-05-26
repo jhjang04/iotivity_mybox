@@ -30,6 +30,8 @@
 #endif
 #include <mutex>
 #include <condition_variable>
+#include <csignal>
+
 
 #include "OCPlatform.h"
 #include "OCApi.h"
@@ -47,7 +49,6 @@ static const char* SVR_DB_FILE_NAME = "./oic_svr_db_server.dat";
 
 // OCPlatformInfo Contains all the platform info to be stored
 OCPlatformInfo platformInfo;
-
 
 void DeletePlatformInfo() {
 	delete[] platformInfo.platformID;
@@ -138,6 +139,7 @@ OCStackResult SetDeviceInfo() {
 void PrintUsage() {
 	std::cout << "**********************************************" << endl;
 	std::cout << "this is mybox server" 							  << endl;
+	std::cout << "please confirm the MyboxCfg.h"					  << endl;
 	std::cout << "**********************************************" << endl;
 }
 
@@ -150,7 +152,17 @@ static FILE* client_open(const char* path, const char* mode) {
 }
 
 
+
+void signalHandler( int signum ) {
+   cout << "Interrupt signal (" << signum << ") received.\n";
+   // cleanup and close up stuff here
+   // terminate program
+   OC_VERIFY(OCPlatform::stop() == OC_STACK_OK);
+   exit(0);
+}
+
 int main(int argc, char* argv[]) {
+	signal(SIGINT, signalHandler);
 	PrintUsage();
 	OCPersistentStorage ps { client_open, fread, fwrite, fclose, unlink };
 	// Create PlatformConfig object
@@ -205,8 +217,9 @@ int main(int argc, char* argv[]) {
 		std::mutex blocker;
 		std::condition_variable cv;
 		std::unique_lock < std::mutex > lock(blocker);
+
 		std::cout << "Waiting" << std::endl;
-		cv.wait(lock, [] {return false;});
+		cv.wait(lock, [] {return false;} );
 	} catch (OCException &e) {
 		std::cout << "OCException in main : " << e.what() << endl;
 	}
